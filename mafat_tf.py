@@ -32,21 +32,21 @@ model = keras.models.Sequential()
 class cnnMA(keras.Model):
     def __init__(self):
         super(cnnMA, self).__init__()
-        self.conv1 = layers.Conv2D(48, 3, activation='relu') # Conv2d(in_channels=1, out_channels=48, kernel_size=[1,2], stride=1, padding=0)
+        self.conv1 = layers.Conv2D(48, (2,1), activation='relu', strides=(1, 1))
         # Shape= (b_s,12,50,50)
-        self.bn1 = layers.BatchNormalization(num_features=48)
+        self.bn1 = layers.BatchNormalization( axis = 1)
         # Shape= (b_s,12,50,50)
 
         # Input shape= (b_s,1,50,50)
         self.flatten = layers.Flatten()
 
-        self.fc1 = layers.Dense(in_features=48*360*1, out_features=36000)
-        self.bn2 = layers.BatchNormalization(36000)
-        self.fc2 = layers.Linear(in_features=36000, out_features = 1000)
-        self.bn3 = layers.BatchNormalization(1000)
-        self.fc3 = layers.Dense(in_features=1000, out_features = 100)
-        self.bn4 = layers.BatchNormalization(100)
-        self.fc4 = layers.Dense(in_features=100, out_features = 2)
+        self.fc1 = layers.Dense(36000, activation='relu')
+        self.bn2 = layers.BatchNormalization()
+        self.fc2 = layers.Dense(1000, activation='relu')
+        self.bn3 = layers.BatchNormalization()
+        self.fc3 = layers.Dense(100, activation='relu')
+        self.bn4 = layers.BatchNormalization()
+        self.fc4 = layers.Dense(2, activation='relu')
 
 
         # Feed forwad function
@@ -54,24 +54,20 @@ class cnnMA(keras.Model):
     def call(self, input):
         output = self.conv1(input)
         output = self.bn1(output)
-        output = self.Lrelu(output)
 
         output = self.Flatten(output)
 
         output = self.fc1(output)
         output = self.bn2(output)
-        output = self.Lrelu(output)
         output = self.fc2(output)
         output = self.bn3(output)
-        output = self.Lrelu(output)
         output = self.fc3(output)
         output = self.bn4(output)
-        output = self.Lrelu(output)
         output = self.fc4(output)
 
         return output
 model = cnnMA()
-loss  = keras.losses.SparseCategoricalCrossentropy(from_logits = True)
+loss_fun  = keras.losses.SparseCategoricalCrossentropy(from_logits = True)
 optimizer = tf.keras.optimizers.Adam()
 optimizer.lr = 0.001
 
@@ -81,7 +77,7 @@ def train_step(images, labels):
     # training=True is only needed if there are layers with different
     # behavior during training versus inference (e.g. Dropout).
     predictions = model(images, training=True)
-    loss = loss_object(labels, predictions)
+    loss = loss_fun(labels, predictions)
   gradients = tape.gradient(loss, model.trainable_variables)
   optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
