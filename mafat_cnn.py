@@ -36,14 +36,14 @@ class FN(nn.Module):
 
         # Output size after convolution filter
         # ((w-f+2P)/s) +1
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=48, kernel_size=[1,2], stride=1, padding=0)
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=48, kernel_size=[10,2], stride=1, padding=0)
         # Shape= (b_s,12,50,50)
         self.bn1 = nn.BatchNorm2d(num_features=48)
         # Shape= (b_s,12,50,50)
 
         # Input shape= (b_s,1,50,50)
 
-        self.fc1 = nn.Linear(in_features=48*360*1, out_features=36000)
+        self.fc1 = nn.Linear(in_features=48*351*1, out_features=36000)
         self.bn2 = nn.BatchNorm1d(36000)
         self.fc2 = nn.Linear(in_features=36000, out_features = 1000)
         self.bn3 = nn.BatchNorm1d(1000)
@@ -58,11 +58,12 @@ class FN(nn.Module):
         # Feed forwad function
 
     def forward(self, input):
+        tmpInput = input
         output = self.conv1(input)
         output = self.bn1(output)
         output = self.Lrelu(output)
 
-        output = output.view(-1, 48*360*1)
+        output = output.view(-1, 48*351*1)
 
         output = self.fc1(output)
         output = self.bn2(output)
