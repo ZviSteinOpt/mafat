@@ -57,7 +57,7 @@ class cnnMA(keras.Model):
 
     def call(self, input):
         output = self.conv1(input)
-        #output = self.bn1(output)
+        output = self.bn1(output)
 
         output = self.flatten(output)
 
