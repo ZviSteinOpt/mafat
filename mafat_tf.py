@@ -27,8 +27,7 @@ for i in np.arange(0,int(l/360)):
 
 
 
-train_ds = tf.data.Dataset.from_tensor_slices((rss_n,gt))
-
+train_ds = tf.data.Dataset.from_tensor_slices((rss_n,gt)).batch(250)
 class cnnMA(keras.Model):
     def __init__(self):
         super(cnnMA, self).__init__()
@@ -53,16 +52,16 @@ class cnnMA(keras.Model):
 
     def call(self, input):
         output = self.conv1(input)
-        output = self.bn1(output)
+        #output = self.bn1(output)
 
         output = self.flatten(output)
 
         output = self.fc1(output)
-        output = self.bn2(output)
+        #output = self.bn2(output)
         output = self.fc2(output)
-        output = self.bn3(output)
+        #output = self.bn3(output)
         output = self.fc3(output)
-        output = self.bn4(output)
+        #output = self.bn4(output)
         output = self.fc4(output)
 
         return output
@@ -83,7 +82,7 @@ def train_step(seq, labels):
   with tf.GradientTape() as tape:
     # training=True is only needed if there are layers with different
     # behavior during training versus inference (e.g. Dropout).
-    seq1 = tf.expand_dims(seq, axis=0)
+    seq1 = tf.expand_dims(seq, axis=1)
     seq2 = tf.expand_dims(seq1, axis=-1)
 
     predictions = model(seq2, training=True)
@@ -93,6 +92,16 @@ def train_step(seq, labels):
 
   train_loss(loss)
   train_accuracy(labels, predictions)
+
+def test_step(images, labels):
+    # training=False is only needed if there are layers with different
+    # behavior during training versus inference (e.g. Dropout).
+    predictions = model(images, training=False)
+    t_loss = loss_object(labels, predictions)
+
+    test_loss(t_loss)
+    test_accuracy(labels, predictions)
+
 
 EPOCHS = 5
 
@@ -106,15 +115,15 @@ for epoch in range(EPOCHS):
       for images, labels in train_ds:
           train_step(images, labels)
 
-      for test_images, test_labels in test_ds:
-          test_step(test_images, test_labels)
+      #for test_images, test_labels in test_ds:
+      #    test_step(test_images, test_labels)
 
       print(
           f'Epoch {epoch + 1}, '
           f'Loss: {train_loss.result()}, '
           f'Accuracy: {train_accuracy.result() * 100}, '
-          f'Test Loss: {test_loss.result()}, '
-          f'Test Accuracy: {test_accuracy.result() * 100}'
+          #f'Test Loss: {test_loss.result()}, '
+          #f'Test Accuracy: {test_accuracy.result() * 100}'
       )
 
 
