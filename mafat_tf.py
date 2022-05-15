@@ -25,15 +25,20 @@ for i in np.arange(0,int(l/360)):
  b = Counter(n)
  gt[i] = b.most_common(1)[0][0]
 
+train_size = int(0.8 * 7632)
+test_size = int(0.2 * 7632)
 
 
-train_ds = tf.data.Dataset.from_tensor_slices((rss_n,gt)).batch(250)
+full_dataset = tf.data.Dataset.from_tensor_slices((rss_n,gt))
+#full_dataset = full_dataset.shuffle()
+train_ds = full_dataset.take(train_size).batch(250)
+test_ds = full_dataset.skip(train_size).batch(250)
 class cnnMA(keras.Model):
     def __init__(self):
         super(cnnMA, self).__init__()
         self.conv1 = layers.Conv2D(48, (2,1), activation='relu', strides=(1, 1))
         # Shape= (b_s,12,50,50)
-        self.bn1 = layers.BatchNormalization( axis = 1)
+        self.bn1 = layers.BatchNormalization( axis = 2)
         # Shape= (b_s,12,50,50)
 
         # Input shape= (b_s,1,50,50)
@@ -93,11 +98,13 @@ def train_step(seq, labels):
   train_loss(loss)
   train_accuracy(labels, predictions)
 
-def test_step(images, labels):
+def test_step(seq, labels):
     # training=False is only needed if there are layers with different
     # behavior during training versus inference (e.g. Dropout).
-    predictions = model(images, training=False)
-    t_loss = loss_object(labels, predictions)
+    seq1 = tf.expand_dims(seq, axis=1)
+    seq2 = tf.expand_dims(seq1, axis=-1)
+    predictions = model(seq2, training=False)
+    t_loss = loss_fun(labels, predictions)
 
     test_loss(t_loss)
     test_accuracy(labels, predictions)
@@ -115,15 +122,15 @@ for epoch in range(EPOCHS):
       for images, labels in train_ds:
           train_step(images, labels)
 
-      #for test_images, test_labels in test_ds:
-      #    test_step(test_images, test_labels)
+      for test_images, test_labels in test_ds:
+          test_step(test_images, test_labels)
 
       print(
           f'Epoch {epoch + 1}, '
           f'Loss: {train_loss.result()}, '
           f'Accuracy: {train_accuracy.result() * 100}, '
-          #f'Test Loss: {test_loss.result()}, '
-          #f'Test Accuracy: {test_accuracy.result() * 100}'
+          f'Test Loss: {test_loss.result()}, '
+          f'Test Accuracy: {test_accuracy.result() * 100}'
       )
 
 
