@@ -62,11 +62,11 @@ class cnnMA(keras.Model):
         output = self.flatten(output)
 
         output = self.fc1(output)
-        #output = self.bn2(output)
+        output = self.bn2(output)
         output = self.fc2(output)
-        #output = self.bn3(output)
+        output = self.bn3(output)
         output = self.fc3(output)
-        #output = self.bn4(output)
+        output = self.bn4(output)
         output = self.fc4(output)
 
         return output
