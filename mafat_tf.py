@@ -14,7 +14,6 @@ a =  data.RSSI_Left[0:l]
 a = np.append(a,b)
 rss =  a.reshape(int(l/360*2),360)
 rss_n = np.zeros((int(l/360),360,2))
-rss_n = pd.DataFrame(rss_n)
 rss_n[:,:,0] = rss[0:int(l/360),:]
 rss_n[:,:,1] = rss[int(l/360):,:]
 
@@ -26,10 +25,9 @@ for i in np.arange(0,int(l/360)):
  b = Counter(n)
  gt[i] = b.most_common(1)[0][0]
 
-train_data = []
-for i in range(len(rss_n)):
-   train_data.append([rss_n[i], gt[i]])
 
+
+train_ds = tf.data.Dataset.from_tensor_slices((rss_n,gt))
 
 class cnnMA(keras.Model):
     def __init__(self):
@@ -57,7 +55,7 @@ class cnnMA(keras.Model):
         output = self.conv1(input)
         output = self.bn1(output)
 
-        output = self.Flatten(output)
+        output = self.flatten(output)
 
         output = self.fc1(output)
         output = self.bn2(output)
@@ -68,20 +66,57 @@ class cnnMA(keras.Model):
         output = self.fc4(output)
 
         return output
+
 model = cnnMA()
+
 loss_fun  = keras.losses.SparseCategoricalCrossentropy(from_logits = True)
 optimizer = tf.keras.optimizers.Adam()
 optimizer.lr = 0.001
 
+train_loss = tf.keras.metrics.Mean(name='train_loss')
+train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
 
-def train_step(images, labels):
+test_loss = tf.keras.metrics.Mean(name='test_loss')
+test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='test_accuracy')
+
+def train_step(seq, labels):
   with tf.GradientTape() as tape:
     # training=True is only needed if there are layers with different
     # behavior during training versus inference (e.g. Dropout).
-    predictions = model(images, training=True)
+    seq1 = tf.expand_dims(seq, axis=0)
+    seq2 = tf.expand_dims(seq1, axis=-1)
+
+    predictions = model(seq2, training=True)
     loss = loss_fun(labels, predictions)
   gradients = tape.gradient(loss, model.trainable_variables)
   optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
   train_loss(loss)
   train_accuracy(labels, predictions)
+
+EPOCHS = 5
+
+for epoch in range(EPOCHS):
+      # Reset the metrics at the start of the next epoch
+      train_loss.reset_states()
+      train_accuracy.reset_states()
+      test_loss.reset_states()
+      test_accuracy.reset_states()
+
+      for images, labels in train_ds:
+          train_step(images, labels)
+
+      for test_images, test_labels in test_ds:
+          test_step(test_images, test_labels)
+
+      print(
+          f'Epoch {epoch + 1}, '
+          f'Loss: {train_loss.result()}, '
+          f'Accuracy: {train_accuracy.result() * 100}, '
+          f'Test Loss: {test_loss.result()}, '
+          f'Test Accuracy: {test_accuracy.result() * 100}'
+      )
+
+
+
+
