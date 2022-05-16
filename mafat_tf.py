@@ -4,10 +4,10 @@ from collections import Counter
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorboard.plugins.hparams import api as hp
 
 data = pd.read_csv('/Users/zvistein/Downloads/mafat_wifi_challenge_training_set_v1.csv')
-train = data.sample(frac=0.8,random_state=0)
-test  = data.drop(train.index)
+
 l = (len(data.RSSI_Right)-len(data.RSSI_Right)%360)
 b =  data.RSSI_Right[0:l]
 a =  data.RSSI_Left[0:l]
@@ -25,18 +25,20 @@ for i in np.arange(0,int(l/360)):
  b = Counter(n)
  gt[i] = b.most_common(1)[0][0]
 
+gt[gt > 0] = 1
+
 train_size = int(0.8 * 7632)
 test_size = int(0.2 * 7632)
 
 
 full_dataset = tf.data.Dataset.from_tensor_slices((rss_n,gt))
 #full_dataset = full_dataset.shuffle()
-train_ds = full_dataset.take(train_size).batch(250)
+train_ds = full_dataset.take(train_size).batch(130)
 test_ds = full_dataset.skip(train_size).batch(250)
 class cnnMA(keras.Model):
     def __init__(self):
         super(cnnMA, self).__init__()
-        self.conv1 = layers.Conv2D(48, (2,1), activation='relu', strides=(1, 1))
+        self.conv1 = layers.Conv2D(48, (10,1), activation='relu', strides=(1, 1))
         # Shape= (b_s,12,50,50)
         self.bn1 = layers.BatchNormalization( axis = 2)
         # Shape= (b_s,12,50,50)
@@ -59,6 +61,7 @@ class cnnMA(keras.Model):
         output = self.conv1(input)
         output = self.bn1(output)
 
+
         output = self.flatten(output)
 
         output = self.fc1(output)
@@ -75,7 +78,6 @@ model = cnnMA()
 
 loss_fun  = keras.losses.SparseCategoricalCrossentropy(from_logits = True)
 optimizer = tf.keras.optimizers.Adam()
-optimizer.lr = 0.001
 
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
@@ -110,7 +112,7 @@ def test_step(seq, labels):
     test_accuracy(labels, predictions)
 
 
-EPOCHS = 5
+EPOCHS = 10
 
 for epoch in range(EPOCHS):
       # Reset the metrics at the start of the next epoch

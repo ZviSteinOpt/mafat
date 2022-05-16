@@ -7,6 +7,29 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader,WeightedRandomSampler,random_split
 
+
+def get_loader(DataSets):
+
+    # oversampling the unbalanced data
+    class_weights = [3,1] # the balance ratio is 1 to 5
+    sample_weights = [0]*len(DataSets)
+
+    for idx, (data,label) in enumerate(DataSets):
+        if label>0:
+         label = 1
+        class_weight = class_weights[int(label)]
+        sample_weights[idx] = class_weight
+
+    sampler = WeightedRandomSampler(sample_weights, num_samples = len(sample_weights), replacement=True)
+
+    # Dataloader
+    train_loader = DataLoader(DataSets,
+        batch_size=200,sampler = sampler)
+
+    return train_loader
+
+
+
 data = pd.read_csv('/Users/zvistein/Downloads/mafat_wifi_challenge_training_set_v1.csv')
 l = (len(data.RSSI_Right)-len(data.RSSI_Right)%360)
 b =  data.RSSI_Right[0:l]
@@ -43,7 +66,7 @@ class FN(nn.Module):
 
         # Input shape= (b_s,1,50,50)
 
-        self.fc1 = nn.Linear(in_features=48*351*1, out_features=36000)
+        self.fc1 = nn.Linear(in_features=48*351*1+360*2, out_features=36000)
         self.bn2 = nn.BatchNorm1d(36000)
         self.fc2 = nn.Linear(in_features=36000, out_features = 1000)
         self.bn3 = nn.BatchNorm1d(1000)
@@ -64,7 +87,9 @@ class FN(nn.Module):
         output = self.Lrelu(output)
 
         output = output.view(-1, 48*351*1)
-
+        input  = input.view(-1, 360 * 2)
+        output = torch.cat(( output.permute(1,0) , input.permute(1,0) ),0)
+        output = output.permute(1, 0)
         output = self.fc1(output)
         output = self.bn2(output)
         output = self.Lrelu(output)
@@ -75,6 +100,7 @@ class FN(nn.Module):
         output = self.bn4(output)
         output = self.Lrelu(output)
         output = self.fc4(output)
+        output = self.relu(output)
 
         return output
 
@@ -86,13 +112,14 @@ train_sets, test_setes = random_split(train_data,[train_count,test_count])
 
 test_loader = DataLoader(test_setes,
     batch_size=500, shuffle=True)
-train_loader = DataLoader(train_sets,
-    batch_size=250, shuffle=True)
+train_loader = get_loader(train_sets)
+# train_loader = DataLoader(train_sets,
+#     batch_size=250, shuffle=True)
 
+torch.manual_seed(3407)
+model = FN(num_classes=1)
 
-model = FN(num_classes=2)
-
-optimizer     = torch.optim.Adam(model.parameters(), lr=0.1, weight_decay=0.01)
+optimizer     = torch.optim.Adam(model.parameters(), lr=0.1, weight_decay=0.1)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=(0.9))
 
 loss_function = nn.CrossEntropyLoss()
@@ -111,6 +138,7 @@ for epoch in range(num_epochs):
     for i, (seq, labels) in enumerate(train_loader):
         labels[labels > 0] = 1
         optimizer.zero_grad()
+        seq = seq/(torch.min(seq))
         seq = seq[None, :]
         seq = seq.permute(1, 0, 2, 3)
         outputs = model(seq.float())
@@ -133,6 +161,7 @@ for epoch in range(num_epochs):
     test_accuracy = 0.0
     for i, (seq, labels) in enumerate(test_loader):
         labels[labels > 0] = 1
+        seq = seq/(torch.min(seq))
         seq = seq[None, :]
         seq = seq.permute(1, 0, 2, 3)
 
