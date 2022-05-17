@@ -10,6 +10,7 @@ from scipy import io
 
 rus = RandomUnderSampler(sampling_strategy=1)
 data = pd.read_csv('/Users/zvistein/Downloads/mafat_wifi_challenge_training_set_v1.csv')
+# data = pd.read_csv('C:/Users/aviel/Desktop/MAFAT/mafat_wifi_challenge_training_set_v1.csv')
 wind = 360
 l = (len(data.RSSI_Right)-len(data.RSSI_Right)%wind)
 b =  data.RSSI_Right[0:l]
