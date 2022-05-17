@@ -24,7 +24,7 @@ def get_loader(DataSets):
 
     # Dataloader
     train_loader = DataLoader(DataSets,
-        batch_size=200,sampler = sampler)
+        batch_size=50,sampler = sampler)
 
     return train_loader
 
@@ -72,7 +72,13 @@ class FN(nn.Module):
         self.bn3 = nn.BatchNorm1d(1000)
         self.fc3 = nn.Linear(in_features=1000, out_features = 100)
         self.bn4 = nn.BatchNorm1d(100)
-        self.fc4 = nn.Linear(in_features=100, out_features = 2)
+        self.fc4 = nn.Linear(in_features=100, out_features = 50)
+        self.bn5 = nn.BatchNorm1d(50)
+        self.fc5 = nn.Linear(in_features=50, out_features = 25)
+        self.bn6 = nn.BatchNorm1d(25)
+        self.fc6 = nn.Linear(in_features=25, out_features = 10)
+        self.bn7 = nn.BatchNorm1d(10)
+        self.fc7 = nn.Linear(in_features=10, out_features = 2)
 
 
         self.relu = nn.ReLU()
@@ -100,8 +106,15 @@ class FN(nn.Module):
         output = self.bn4(output)
         output = self.Lrelu(output)
         output = self.fc4(output)
+        output = self.bn5(output)
         output = self.relu(output)
-
+        output = self.fc5(output)
+        output = self.bn6(output)
+        output = self.Lrelu(output)
+        output = self.fc6(output)
+        output = self.bn7(output)
+        output = self.Lrelu(output)
+        output = self.fc7(output)
         return output
 
 
@@ -119,7 +132,7 @@ train_loader = get_loader(train_sets)
 torch.manual_seed(3407)
 model = FN(num_classes=1)
 
-optimizer     = torch.optim.Adam(model.parameters(), lr=0.1, weight_decay=0.1)
+optimizer     = torch.optim.Adam(model.parameters(), lr=0.1)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=(0.9))
 
 loss_function = nn.CrossEntropyLoss()
@@ -143,6 +156,7 @@ for epoch in range(num_epochs):
         seq = seq.permute(1, 0, 2, 3)
         outputs = model(seq.float())
         loss = loss_function(outputs, labels.long())
+        print(loss)
         s_loss[idx] = loss
         idx = idx+1
         loss.backward()
