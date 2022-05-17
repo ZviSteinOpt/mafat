@@ -8,11 +8,6 @@ from tensorboard.plugins.hparams import api as hp
 from imblearn.under_sampling import RandomUnderSampler
 from scipy import io
 
-mat = io.loadmat('/Users/zvistein/Desktop/matlab.mat')
-fich = mat['fich']
-lab = mat['lab']
-lab = np.squeeze(lab)
-
 rus = RandomUnderSampler(sampling_strategy=1)
 data = pd.read_csv('/Users/zvistein/Downloads/mafat_wifi_challenge_training_set_v1.csv')
 wind = 360
@@ -29,15 +24,15 @@ b = data.Num_People[0:l]
 num = b.values.reshape(int(l/wind),wind)
 gt = np.zeros(int(l/wind))
 for i in np.arange(0,int(l/wind)):
- n = num[i,:]
- b = Counter(n)
- gt[i]  = np.sign(b.most_common(1)[0][0])
+    n = num[i,:]
+    b = Counter(n)
+    gt[i] = np.sign(b.most_common(1)[0][0])
 
 d_s = np.zeros((len(rss_n),2))
 d_s[:,0] = np.arange(0,len(rss_n))
-x_u,y_u = rus.fit_resample(d_s,gt)
+x_u, y_u = rus.fit_resample(d_s,gt)
 x_u = x_u.astype(int)
-gt   = gt[x_u[:,0]]
+gt = gt[x_u[:,0]]
 data_ds = rss_n[x_u[:,0],:]
 train_size = int(0.8 * len(data_ds))
 full_dataset = tf.data.Dataset.from_tensor_slices((data_ds,gt)).shuffle(4000)
