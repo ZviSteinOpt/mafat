@@ -11,6 +11,8 @@ from scipy import io
 
 
 data = pd.read_csv('/Users/zvistein/Downloads/mafat_wifi_challenge_training_set_v1.csv')
+
+# orgenized the data 360X2
 wind = 360
 l = (len(data.RSSI_Right)-len(data.RSSI_Right)%wind)
 b =  data.RSSI_Right[0:l]
@@ -21,7 +23,7 @@ rss_n = np.zeros((int(l/wind),wind,2))
 rss_n[:,:,0] = rss[0:int(l/wind),:]
 rss_n[:,:,1] = rss[int(l/wind):,:]
 
-
+# the labels as well
 b = data.Num_People[0:l]
 gt = np.zeros(int(l/wind))
 for i in np.arange(0,int(l/wind)):
