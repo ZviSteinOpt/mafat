@@ -9,7 +9,6 @@ from imblearn.under_sampling import RandomUnderSampler
 from scipy import io
 
 
-
 data = pd.read_csv('/Users/zvistein/Downloads/mafat_wifi_challenge_training_set_v1.csv')
 
 # orgenized the data 360X2
@@ -19,14 +18,18 @@ b =  data.RSSI_Right[0:l]
 a =  data.RSSI_Left[0:l]
 a = np.append(a,b)
 rss =  a.reshape(int(l/wind*2),wind)
-rss_n = np.zeros((int(l/wind),wind,2))
+rss_n = np.zeros((int(l/wind),wind,3))
 rss_n[:,:,0] = rss[0:int(l/wind),:]
 rss_n[:,:,1] = rss[int(l/wind):,:]
+# adding the substract betw the lobs
+rss_n[:,:,2] = rss[int(l/wind):,:]-rss[0:int(l/wind),:]
 
 # the labels as well
 b = data.Num_People[0:l]
+num = b.values.reshape(int(l/wind),wind)
 gt = np.zeros(int(l/wind))
 for i in np.arange(0,int(l/wind)):
+ n = num[i,:]
  b = Counter(n)
  gt[i]  = np.sign(b.most_common(1)[0][0])
 
@@ -63,6 +66,7 @@ class cnnMA(keras.Model):
         self.fc2 = layers.Dense(10000, activation='LeakyReLU')
         self.bn3 = layers.BatchNormalization()
         self.fc3 = layers.Dense(1000, activation='LeakyReLU')
+
         self.bn4 = layers.BatchNormalization()
         self.fc4 = layers.Dense(100, activation='LeakyReLU')
         self.bn5 = layers.BatchNormalization()
