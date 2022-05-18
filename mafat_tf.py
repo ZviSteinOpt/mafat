@@ -18,11 +18,16 @@ b =  data.RSSI_Right[0:l]
 a =  data.RSSI_Left[0:l]
 a = np.append(a,b)
 rss =  a.reshape(int(l/wind*2),wind)
-rss_n = np.zeros((int(l/wind),wind,3))
-rss_n[:,:,0] = rss[0:int(l/wind),:]
-rss_n[:,:,1] = rss[int(l/wind):,:]
+rss_n = np.zeros((int(l/wind),wind,4))
+rss_n[:,:,0] = (rss[0:int(l/wind),:]-np.min(rss[0:int(l/wind),:]))/(np.max(rss[0:int(l/wind),:])-np.min(rss[0:int(l/wind),:]))
+rss_n[:,:,1] = (rss[int(l/wind):,:]-np.min(rss[int(l/wind):,:]))/(np.max(rss[int(l/wind):,:])-np.min(rss[int(l/wind):,:]))
 # adding the substract betw the lobs
-rss_n[:,:,2] = rss[int(l/wind):,:]-rss[0:int(l/wind),:]
+mx = np.max(rss[int(l/wind):,:]-rss[0:int(l/wind),:])
+mn = np.min(rss[int(l/wind):,:]-rss[0:int(l/wind),:])
+rss_n[:,:,2] = (rss[int(l/wind):,:]-rss[0:int(l/wind),:]-mn)/(mx-mn)
+mx = np.max(rss[int(l/wind):,:]+rss[0:int(l/wind),:])
+mn = np.min(rss[int(l/wind):,:]+rss[0:int(l/wind),:])
+rss_n[:,:,3] = (rss[int(l/wind):,:]+rss[0:int(l/wind),:]-mn)/(mx-mn)
 
 # the labels as well
 b = data.Num_People[0:l]
@@ -31,11 +36,11 @@ gt = np.zeros(int(l/wind))
 for i in np.arange(0,int(l/wind)):
  n = num[i,:]
  b = Counter(n)
- gt[i]  = np.sign(b.most_common(1)[0][0])
+ gt[i]  = b.most_common(1)[0][0]
 
 
 # undersumpeling treatment
-rus = RandomUnderSampler(sampling_strategy=1)
+rus = RandomUnderSampler(sampling_strategy={0: 2110, 1: 988, 2: 3000, 3: 1096})
 d_s = np.zeros((len(rss_n),2))
 d_s[:,0] = np.arange(0,len(rss_n))
 x_u,y_u = rus.fit_resample(d_s,gt)
@@ -49,8 +54,8 @@ train_size = int(0.8 * len(data_ds))
 full_dataset = tf.data.Dataset.from_tensor_slices((data_ds,gt)).shuffle(4000)
 #full_dataset = full_dataset.shuffle()
 
-train_ds = full_dataset.take(train_size).batch(15)
-valid_ds = full_dataset.skip(train_size).batch(15)
+train_ds = full_dataset.take(train_size).batch(25)
+valid_ds = full_dataset.skip(train_size).batch(100)
 class cnnMA(keras.Model):
     def __init__(self):
         super(cnnMA, self).__init__()
@@ -72,7 +77,7 @@ class cnnMA(keras.Model):
         self.bn5 = layers.BatchNormalization()
         self.fc5 = layers.Dense(250, activation='LeakyReLU')
         self.bn6 = layers.BatchNormalization()
-        self.fc6 = layers.Dense(2, activation='LeakyReLU')
+        self.fc6 = layers.Dense(4, activation='LeakyReLU')
         self.s   = layers.Softmax(axis=-1)
 
         # Feed forwad function
@@ -93,14 +98,14 @@ class cnnMA(keras.Model):
         output = self.bn5(output)
         output = self.fc5(output)
         output = self.bn6(output)
-        output = self.fc6(output)
+        output = self.fc6(-output)
         #output = self.s(output)
         return output
 
 model = cnnMA()
 
 loss_fun  = keras.losses.SparseCategoricalCrossentropy(from_logits = True)
-optimizer = tf.keras.optimizers.SGD()
+optimizer = tf.keras.optimizers.Adam()
 optimizer.lr = 0.1
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
@@ -117,7 +122,7 @@ def train_step(seq, labels):
 
     predictions = model(seq2, training=True)
     loss = loss_fun(labels, predictions)
-    # print(loss)
+    #print(loss)
   gradients = tape.gradient(loss, model.trainable_variables)
   optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
