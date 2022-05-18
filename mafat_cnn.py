@@ -58,7 +58,7 @@ for i in np.arange(0,int(l/360)):
  gt[i] = np.sign(b.most_common(1)[0][0])
 
 train_data = []
-for i in range(len(rss_n)):
+for i in range(10):#len(rss_n)/100):
    train_data.append([rss_n[i], gt[i]])
 
 
@@ -87,9 +87,7 @@ class FN(nn.Module):
         self.bn6 = nn.BatchNorm1d(25)
         self.fc6 = nn.Linear(in_features=25, out_features = 10)
         self.bn7 = nn.BatchNorm1d(10)
-        self.fc7 = nn.Linear(in_features=10, out_features = 1)
-        self.bn8 = nn.BatchNorm1d(1)
-        self.sm  = nn.Softmax()
+        self.fc7 = nn.Linear(in_features=10, out_features = 2)
 
         self.relu = nn.ReLU()
         self.Lrelu = nn.LeakyReLU()
@@ -125,9 +123,7 @@ class FN(nn.Module):
         output = self.bn7(output)
         output = self.Lrelu(output)
         output = self.fc7(output)
-        output = self.relu(output)
-        output = self.bn8(output)
-        output = self.sm(output)
+
 
 
         return output
@@ -135,7 +131,8 @@ class FN(nn.Module):
 
 test_count  = len(rss_n)//7
 train_count = len(rss_n)-test_count
-
+test_count  = 7
+train_count = 3
 train_sets, test_setes = random_split(train_data,[train_count,test_count])
 
 test_loader = DataLoader(test_setes,
@@ -150,7 +147,7 @@ model = FN(num_classes=1)
 optimizer     = torch.optim.Adam(model.parameters(), lr=0.1)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=(0.9))
 
-loss_function = nn.BCELoss()
+loss_function = nn.CrossEntropyLoss()
 
 num_epochs = 100
 s_loss = torch.zeros(num_epochs*len(train_loader))
@@ -169,7 +166,7 @@ for epoch in range(num_epochs):
         seq = seq[None, :]
         seq = seq.permute(1, 0, 2, 3)
         outputs = model(seq.float())
-        loss = loss_function(outputs.view(-1), labels.float())        # print(loss)
+        loss = loss_function(outputs, labels.long())
         s_loss[idx] = loss
         idx = idx+1
         loss.backward()
