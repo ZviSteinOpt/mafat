@@ -24,21 +24,30 @@ def get_loader(DataSets):
 
     # Dataloader
     train_loader = DataLoader(DataSets,
-        batch_size=50,sampler = sampler)
+        batch_size=40,sampler = sampler)
 
     return train_loader
 
 
 
 data = pd.read_csv('/Users/zvistein/Downloads/mafat_wifi_challenge_training_set_v1.csv')
-l = (len(data.RSSI_Right)-len(data.RSSI_Right)%360)
+wind = 360
+l = (len(data.RSSI_Right)-len(data.RSSI_Right)%wind)
 b =  data.RSSI_Right[0:l]
 a =  data.RSSI_Left[0:l]
-a = np.append(a, b)
-rss =  a.reshape(int(l/360*2),360)
-rss_n = np.zeros((int(l/360),360,2))
-rss_n[:,:,0] = rss[0:int(l/360),:]
-rss_n[:,:,1] = rss[int(l/360):,:]
+a = np.append(a,b)
+rss =  a.reshape(int(l/wind*2),wind)
+rss_n = np.zeros((int(l/wind),wind,4))
+rss_n[:,:,0] = (rss[0:int(l/wind),:]-np.min(rss[0:int(l/wind),:]))/(np.max(rss[0:int(l/wind),:])-np.min(rss[0:int(l/wind),:]))
+rss_n[:,:,1] = (rss[int(l/wind):,:]-np.min(rss[int(l/wind):,:]))/(np.max(rss[int(l/wind):,:])-np.min(rss[int(l/wind):,:]))
+# adding the substract betw the lobs
+mn = np.min(rss[int(l/wind):,:]+rss[0:int(l/wind),:])
+mx = np.max(rss[int(l/wind):,:]+rss[0:int(l/wind),:])
+rss_n[:,:,3] = (rss[int(l/wind):,:]+rss[0:int(l/wind),:]-mn)/(mx-mn)
+mn = np.min(rss[int(l/wind):,:]-rss[0:int(l/wind),:])
+mx = np.max(rss[int(l/wind):,:]-rss[0:int(l/wind),:])
+rss_n[:,:,2] = (rss[int(l/wind):,:]-rss[0:int(l/wind),:]-mn)/(mx-mn)
+
 
 b = data.Num_People[0:l]
 num = b.values.reshape(int(l/360),360)
@@ -46,7 +55,7 @@ gt = np.zeros(int(l/360))
 for i in np.arange(0,int(l/360)):
  n = num[i,:]
  b = Counter(n)
- gt[i] = b.most_common(1)[0][0]
+ gt[i] = np.sign(b.most_common(1)[0][0])
 
 train_data = []
 for i in range(len(rss_n)):
@@ -59,14 +68,14 @@ class FN(nn.Module):
 
         # Output size after convolution filter
         # ((w-f+2P)/s) +1
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=48, kernel_size=[10,2], stride=1, padding=0)
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=12, kernel_size=[1,2], stride=1, padding=0)
         # Shape= (b_s,12,50,50)
-        self.bn1 = nn.BatchNorm2d(num_features=48)
+        self.bn1 = nn.BatchNorm2d(num_features=12)
         # Shape= (b_s,12,50,50)
 
         # Input shape= (b_s,1,50,50)
 
-        self.fc1 = nn.Linear(in_features=48*351*1+360*2, out_features=36000)
+        self.fc1 = nn.Linear(in_features=4*360, out_features=36000)
         self.bn2 = nn.BatchNorm1d(36000)
         self.fc2 = nn.Linear(in_features=36000, out_features = 1000)
         self.bn3 = nn.BatchNorm1d(1000)
@@ -78,8 +87,9 @@ class FN(nn.Module):
         self.bn6 = nn.BatchNorm1d(25)
         self.fc6 = nn.Linear(in_features=25, out_features = 10)
         self.bn7 = nn.BatchNorm1d(10)
-        self.fc7 = nn.Linear(in_features=10, out_features = 2)
-
+        self.fc7 = nn.Linear(in_features=10, out_features = 1)
+        self.bn8 = nn.BatchNorm1d(1)
+        self.sm  = nn.Softmax()
 
         self.relu = nn.ReLU()
         self.Lrelu = nn.LeakyReLU()
@@ -87,15 +97,15 @@ class FN(nn.Module):
         # Feed forwad function
 
     def forward(self, input):
-        tmpInput = input
-        output = self.conv1(input)
-        output = self.bn1(output)
-        output = self.Lrelu(output)
+        # tmpInput = input
+        # output = self.conv1(input)
+        # output = self.bn1(output)
+        # output = self.Lrelu(output)
 
-        output = output.view(-1, 48*351*1)
-        input  = input.view(-1, 360 * 2)
-        output = torch.cat(( output.permute(1,0) , input.permute(1,0) ),0)
-        output = output.permute(1, 0)
+        output = input.view(-1, 4*360)
+        # input  = input.view(-1, 360 * 2)
+        # output = torch.cat(( output.permute(1,0) , input.permute(1,0) ),0)
+        # output = output.permute(1, 0)
         output = self.fc1(output)
         output = self.bn2(output)
         output = self.Lrelu(output)
@@ -115,6 +125,11 @@ class FN(nn.Module):
         output = self.bn7(output)
         output = self.Lrelu(output)
         output = self.fc7(output)
+        output = self.relu(output)
+        output = self.bn8(output)
+        output = self.sm(output)
+
+
         return output
 
 
@@ -135,7 +150,7 @@ model = FN(num_classes=1)
 optimizer     = torch.optim.Adam(model.parameters(), lr=0.1)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=(0.9))
 
-loss_function = nn.CrossEntropyLoss()
+loss_function = nn.BCELoss()
 
 num_epochs = 100
 s_loss = torch.zeros(num_epochs*len(train_loader))
@@ -151,12 +166,10 @@ for epoch in range(num_epochs):
     for i, (seq, labels) in enumerate(train_loader):
         labels[labels > 0] = 1
         optimizer.zero_grad()
-        seq = seq/(torch.min(seq))
         seq = seq[None, :]
         seq = seq.permute(1, 0, 2, 3)
         outputs = model(seq.float())
-        loss = loss_function(outputs, labels.long())
-        print(loss)
+        loss = loss_function(outputs.view(-1), labels.float())        # print(loss)
         s_loss[idx] = loss
         idx = idx+1
         loss.backward()
@@ -175,7 +188,6 @@ for epoch in range(num_epochs):
     test_accuracy = 0.0
     for i, (seq, labels) in enumerate(test_loader):
         labels[labels > 0] = 1
-        seq = seq/(torch.min(seq))
         seq = seq[None, :]
         seq = seq.permute(1, 0, 2, 3)
 
