@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader,WeightedRandomSampler,random_split
 import time
 
 if torch.backends.mps.is_available():
-    device = torch.device('mps')
+    device = torch.device('cpu')
 else:
     device = torch.device('cpu')
 
@@ -39,7 +39,7 @@ all_labels = []
 weit       = [0,0,0,0]
 for ii in range(5):
     wind = 360
-    rm = 5
+    rm = 2
     Dr = data.RSSI_Right[data.Room_Num == rm]
     Dl = data.RSSI_Left[data.Room_Num == rm]
     La = data.Num_People[data.Room_Num == rm]
@@ -113,26 +113,26 @@ class FN(nn.Module):
 
         # Output size after convolution filter
         # ((w-f+2P)/s) +1
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=24, kernel_size=[1,2], stride=1, padding=0)
+        self.conv1 = nn.Conv1d(in_channels=1, out_channels=10, kernel_size=[5], stride=3, padding=0)
         # Shape= (b_s,12,50,50)
-        self.bn1 = nn.BatchNorm2d(num_features=24)
+        self.bn1 = nn.BatchNorm1d(num_features=10)
         # Shape= (b_s,12,50,50)
 
         # Input shape= (b_s,1,50,50)
 
-        self.fc1 = nn.Linear(in_features=360*1, out_features=3600)
-        self.bn2 = nn.BatchNorm1d(3600)
-        self.fc2 = nn.Linear(in_features=3600, out_features = 1000)
-        self.bn3 = nn.BatchNorm1d(1000)
-        self.fc3 = nn.Linear(in_features=1000, out_features = 100)
-        self.bn4 = nn.BatchNorm1d(100)
+        self.fc1 = nn.Linear(in_features=119*10, out_features=1000)
+        self.bn2 = nn.BatchNorm1d(1000)
+        self.fc2 = nn.Linear(in_features=1000, out_features = 100)
+        self.bn3 = nn.BatchNorm1d(100)
+        self.fc3 = nn.Linear(in_features=100, out_features = 10)
+        self.bn4 = nn.BatchNorm1d(10)
         self.fc4 = nn.Linear(in_features=1000, out_features = 500)
         self.bn5 = nn.BatchNorm1d(500)
         self.fc5 = nn.Linear(in_features=500, out_features = 250)
         self.bn6 = nn.BatchNorm1d(250)
         self.fc6 = nn.Linear(in_features=250, out_features = 100)
         self.bn7 = nn.BatchNorm1d(100)
-        self.fc7 = nn.Linear(in_features=100, out_features = 4)
+        self.fc7 = nn.Linear(in_features=10, out_features = 4)
         self.DO  = nn.Dropout(p=0.5)
         self.relu = nn.ReLU()
         self.Lrelu = nn.LeakyReLU()
@@ -140,14 +140,11 @@ class FN(nn.Module):
         # Feed forwad function
 
     def forward(self, input):
-        # output = self.conv1(input)
-        # output = self.bn1(output)
-        # output = self.Lrelu(output)
+        output = self.conv1(input)
+        output = self.bn1(output)
+        output = self.Lrelu(output)
 
-        output = input.view(-1, 1*360)
-        # output  = output.view(-1, 12*360 * 3)
-        # output = torch.cat(( output.permute(1,0) , input.permute(1,0) ),0)
-        # output = output.permute(1, 0)
+        output = output.view(-1, 10*119)
         output = self.fc1(output)
         output = self.bn2(output)
         output = self.Lrelu(output)
@@ -177,7 +174,7 @@ class FN(nn.Module):
         return output
 
 
-test_count  = (len(all_data[0])+len(all_data[1])+len(all_data[2])+len(all_data[3])+len(all_data[4]))//9
+test_count  = count_1//20
 train_count = count_1-test_count
 # train_count = np.floor(count*0.8)
 # test_count  = count-np.floor(count*0.8)
@@ -212,8 +209,7 @@ for epoch in range(num_epochs):
 
     for i, (seq, labels) in enumerate(train_loader):
         optimizer.zero_grad()
-        seq = seq[None, :]
-        seq = seq.permute(1, 0, 2, 3)
+        seq = seq.permute(0, 2, 1)
         seq = seq.float()
         seq = seq.to(device)
         outputs = model(seq)
@@ -238,8 +234,7 @@ for epoch in range(num_epochs):
     test_accuracy = 0.0
     test_loss     = 0.0
     for i, (seq, labels) in enumerate(test_loader):
-        seq = seq[None, :]
-        seq = seq.permute(1, 0, 2, 3)
+        seq = seq.permute(0, 2, 1)
         seq = seq.float()
         seq = seq.to(device)
         labels = labels.long()
