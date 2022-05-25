@@ -8,7 +8,9 @@ import torch.nn as nn
 from torch.utils.data import DataLoader,WeightedRandomSampler,random_split
 import time
 
-if torch.backends.mps.is_available():
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+elif torch.backends.mps.is_available():
     device = torch.device('cpu')
 else:
     device = torch.device('cpu')
@@ -32,8 +34,8 @@ def get_loader(DataSets,class_weights):
     return train_loader
 
 
-
-data = pd.read_csv('/Users/zvistein/Downloads/mafat_wifi_challenge_training_set_v1.csv')
+data = pd.read_csv('C:/Users/aviel/Desktop/MAFAT/mafat_wifi_challenge_training_set_v1.csv')
+# data = pd.read_csv('/Users/zvistein/Downloads/mafat_wifi_challenge_training_set_v1.csv')
 all_data   = []
 all_labels = []
 weit       = [0,0]
@@ -175,7 +177,7 @@ train_sets = get_loader(train_sets,weit)
 torch.manual_seed(1)
 model = FN(num_classes=1).to(device)
 
-optimizer     = torch.optim.SGD(model.parameters(), lr=0.001,weight_decay=0.9)
+optimizer     = torch.optim.SGD(model.parameters(), lr=0.001,weight_decay=1e-5)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=800, gamma=0.5)
 
 loss_function = nn.CrossEntropyLoss()

@@ -44,15 +44,15 @@ fin_labels = np.zeros(fin_size)
 
 indy = np.array([])
 for i in range(0,fin_size):
-  temp = fin_num_people[i,:]
-  temp = Counter(temp)
-  num = temp.most_common(1)[0][0]
-  if num!=0:
-    fin_labels[i] = 1
-  else:
-    fin_labels[i] = 0
-  if np.std(fin_dif[i,:])!=0:
-    indy = np.append(indy,i)
+    temp = fin_num_people[i,:]
+    temp = Counter(temp)
+    num = temp.most_common(1)[0][0]
+    if num!=0:
+        fin_labels[i] = 1
+    else:
+        fin_labels[i] = 0
+    if np.std(fin_dif[i,:])!=0:
+        indy = np.append(indy,i)
 
 # Cleaning Trash Data std=0
 fin_left = fin_left[indy.astype('int'),:]
